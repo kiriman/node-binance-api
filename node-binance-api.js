@@ -1,5 +1,5 @@
 /* ============================================================
- * node-binance-api
+ * node-binance-api by kiriman and ViktorK
  * https://github.com/jaggedsoft/node-binance-api
  * ============================================================
  * Copyright 2017-, Jon Eyrick
