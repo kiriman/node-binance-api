@@ -28,7 +28,10 @@ let api = function Binance( options = {} ) {
     let fapiTest = 'https://testnet.binancefuture.com/fapi/';
     let dapiTest = 'https://testnet.binancefuture.com/dapi/';
     let fstream = 'wss://fstream.binance.com/stream?streams=';
+    //wss://fstream-auth.binance.com/ws/btcusdt@markPrice?listenKey=XaEAKTsQSRLZAGH9tuIu37plSRsdjmlAVBoNYPUITlTAko1WI22PgmBMpI1rS8Yh
+    let fstreamAuth = 'wss://fstream-auth.binance.com/ws/';
     let fstreamSingle = 'wss://fstream.binance.com/ws/';
+    let fstreamAuthSingle = 'wss://fstream-auth.binance.com/ws/';
     let fstreamSingleTest = 'wss://stream.binancefuture.com/ws/';
     let fstreamTest = 'wss://stream.binancefuture.com/stream?streams=';
     let dstream = 'wss://dstream.binance.com/stream?streams=';
@@ -70,7 +73,8 @@ let api = function Binance( options = {} ) {
         family: false,
         log: function ( ...args ) {
             console.log( Array.prototype.slice.call( args ) );
-        }
+        },
+        listenFutureKeyTimer: null,
     };
     Binance.options = default_options;
     Binance.info = {
@@ -870,7 +874,15 @@ let api = function Binance( options = {} ) {
      * @return {WebSocket} - websocket reference
      */
     const futuresSubscribeSingle = function ( endpoint, callback, params = {} ) {
+        // endpoint === XaEAKTsQSRLZAGH9tuIu37plSRsdjmlAVBoNYPUITlTAko1WI22PgmBMpI1rS8Yh
         if ( typeof params === 'boolean' ) params = { reconnect: params };
+        const listenFutureKey = params?.listenFutureKey
+        let nextEndpoint = endpoint
+        let nextFstreamSingle = fstreamSingle
+        if(listenFutureKey){
+            nextEndpoint = `${endpoint}?listenKey=${listenFutureKey}`
+            nextFstreamSingle = fstreamAuthSingle
+        }
         if ( !params.reconnect ) params.reconnect = false;
         if ( !params.openCallback ) params.openCallback = false;
         if ( !params.id ) params.id = false;
@@ -886,19 +898,19 @@ let api = function Binance( options = {} ) {
                 host: parseProxy( socksproxy )[1],
                 port: parseProxy( socksproxy )[2]
             } );
-            ws = new WebSocket( ( Binance.options.test ? fstreamSingleTest : fstreamSingle ) + endpoint, { agent } );
+            ws = new WebSocket( ( Binance.options.test ? fstreamSingleTest : nextFstreamSingle ) + nextEndpoint, { agent } );
         } else if ( httpsproxy !== false ) {
             let config = url.parse( httpsproxy );
             let agent = new HttpsProxyAgent( config );
             if ( Binance.options.verbose ) Binance.options.log( `futuresSubscribeSingle: using proxy server: ${ agent }` );
-            ws = new WebSocket( ( Binance.options.test ? fstreamSingleTest : fstreamSingle ) + endpoint, { agent } );
+            ws = new WebSocket( ( Binance.options.test ? fstreamSingleTest : nextFstreamSingle ) + nextEndpoint, { agent } );
         } else {
-            ws = new WebSocket( ( Binance.options.test ? fstreamSingleTest : fstreamSingle ) + endpoint );
+            ws = new WebSocket( ( Binance.options.test ? fstreamSingleTest : nextFstreamSingle ) + nextEndpoint );
         }
 
-        if ( Binance.options.verbose ) Binance.options.log( 'futuresSubscribeSingle: Subscribed to ' + endpoint );
+        if ( Binance.options.verbose ) Binance.options.log( 'futuresSubscribeSingle: Subscribed to ' + nextEndpoint );
         ws.reconnect = Binance.options.reconnect;
-        ws.endpoint = endpoint;
+        ws.endpoint = nextEndpoint;
         ws.isAlive = false;
         ws.on( 'open', handleFuturesSocketOpen.bind( ws, params.openCallback ) );
         ws.on( 'pong', handleFuturesSocketHeartbeat );
@@ -922,14 +934,21 @@ let api = function Binance( options = {} ) {
      * @return {WebSocket} - websocket reference
      */
     const futuresSubscribe = function ( streams, callback, params = {} ) {
+        // console.log('streams: ', streams) ["btcusdt@kline_1m", ""] || XaEAKTsQSRLZAGH9tuIu37plSRsdjmlAVBoNYPUITlTAko1WI22PgmBMpI1rS8Yh
         if ( typeof streams === 'string' ) return futuresSubscribeSingle( streams, callback, params );
         if ( typeof params === 'boolean' ) params = { reconnect: params };
+        const listenFutureKey = params?.listenFutureKey
         if ( !params.reconnect ) params.reconnect = false;
         if ( !params.openCallback ) params.openCallback = false;
         if ( !params.id ) params.id = false;
         let httpsproxy = process.env.https_proxy || false;
         let socksproxy = process.env.socks_proxy || false;
-        const queryParams = streams.join( '/' );
+        let queryParams = streams.join( '/' );
+        let nextFstream = fstream
+        if(listenFutureKey){
+            queryParams = `${queryParams}&listenKey=${listenFutureKey}`
+            nextFstream = fstreamAuth
+        }
         let ws = false;
         if ( socksproxy !== false ) {
             socksproxy = proxyReplacewithIp( socksproxy );
@@ -939,14 +958,14 @@ let api = function Binance( options = {} ) {
                 host: parseProxy( socksproxy )[1],
                 port: parseProxy( socksproxy )[2]
             } );
-            ws = new WebSocket( ( Binance.options.test ? fstreamTest : fstream ) + queryParams, { agent } );
+            ws = new WebSocket( ( Binance.options.test ? fstreamTest : nextFstream ) + queryParams, { agent } );
         } else if ( httpsproxy !== false ) {
             if ( Binance.options.verbose ) Binance.options.log( `futuresSubscribe: using proxy server ${ httpsproxy }` );
             let config = url.parse( httpsproxy );
             let agent = new HttpsProxyAgent( config );
-            ws = new WebSocket( ( Binance.options.test ? fstreamTest : fstream ) + queryParams, { agent } );
+            ws = new WebSocket( ( Binance.options.test ? fstreamTest : nextFstream ) + queryParams, { agent } );
         } else {
-            ws = new WebSocket( ( Binance.options.test ? fstreamTest : fstream ) + queryParams );
+            ws = new WebSocket( ( Binance.options.test ? fstreamTest : nextFstream ) + queryParams );
         }
 
         ws.reconnect = Binance.options.reconnect;
@@ -5058,19 +5077,38 @@ let api = function Binance( options = {} ) {
          * @param {function} callback - callback function
          * @return {string} the websocket endpoint
          */
-        futuresCandlesticks: function futuresCandlesticks( symbols, interval, callback ) {
+        futuresCandlesticks: function futuresCandlesticks( symbols, interval, callback, params = {} ) {
+            const auth = params?.auth
             let reconnect = () => {
-                if ( Binance.options.reconnect ) futuresCandlesticks( symbols, interval, callback );
+                if ( Binance.options.reconnect ) futuresCandlesticks( symbols, interval, callback, params );
             };
+
             let subscription;
-            if ( Array.isArray( symbols ) ) {
-                if ( !isArrayUnique( symbols ) ) throw Error( 'futuresCandlesticks: "symbols" array cannot contain duplicate elements.' );
-                let streams = symbols.map( symbol => symbol.toLowerCase() + '@kline_' + interval );
-                subscription = futuresSubscribe( streams, callback, { reconnect } );
-            } else {
-                let symbol = symbols.toLowerCase();
-                subscription = futuresSubscribeSingle( symbol + '@kline_' + interval, callback, { reconnect } );
-            }
+            apiRequest( url + 'v1/listenKey', {}, function ( error, response ) {
+                Binance.options.listenFutureKey = response.listenKey;
+                if(!Binance.options.listenFutureKeyTimer){
+                    Binance.options.listenFutureKeyTimer = setTimeout( function userDataKeepAlive() { // keepalive
+                        try {
+                            apiRequest( url + 'v1/listenKey?listenKey=' + Binance.options.listenFutureKey, {}, function ( err ) {
+                                if ( err ) Binance.options.listenFutureKeyTimer = setTimeout( userDataKeepAlive, 60000 ); // retry in 1 minute
+                                else Binance.options.listenFutureKeyTimer = setTimeout( userDataKeepAlive, 60 * 30 * 1000 ); // 30 minute keepalive
+                            }, 'PUT' );
+                        } catch ( error ) {
+                            Binance.options.listenFutureKeyTimer = setTimeout( userDataKeepAlive, 60000 ); // retry in 1 minute
+                        }
+                    }, 60 * 30 * 1000 ); // 30 minute keepalive
+                }
+
+                if ( Array.isArray( symbols ) ) {
+                    if ( !isArrayUnique( symbols ) ) throw Error( 'futuresCandlesticks: "symbols" array cannot contain duplicate elements.' );
+                    let streams = symbols.map( symbol => symbol.toLowerCase() + '@kline_' + interval );
+                    subscription = futuresSubscribe( streams, callback, { reconnect, listenFutureKey: auth ? Binance.options.listenFutureKey : null} );
+                } else {
+                    let symbol = symbols.toLowerCase();
+                    subscription = futuresSubscribeSingle( symbol + '@kline_' + interval, callback, { reconnect, listenFutureKey: auth ? Binance.options.listenFutureKey : null } );
+                }
+            }, 'POST' );
+
             return subscription.endpoint;
         },
 
@@ -5393,30 +5431,34 @@ let api = function Binance( options = {} ) {
              * @param {function} order_update_callback
              * @param {Function} subscribed_callback - subscription callback
              */
-            userFutureData: function userFutureData( margin_call_callback, account_update_callback = undefined, order_update_callback = undefined, subscribed_callback = undefined, account_config_update_callback = undefined ) {
+            userFutureData: function userFutureData( margin_call_callback, account_update_callback = undefined, order_update_callback = undefined, subscribed_callback = undefined, account_config_update_callback = undefined, params = {} ) {
+                const auth = params?.auth
                 const url = ( Binance.options.test ) ? fapiTest : fapi;
 
                 let reconnect = () => {
-                    if ( Binance.options.reconnect ) userFutureData( margin_call_callback, account_update_callback, order_update_callback, subscribed_callback )
+                    if ( Binance.options.reconnect ) userFutureData( margin_call_callback, account_update_callback, order_update_callback, subscribed_callback, undefined, params )
                 }
 
                 apiRequest( url + 'v1/listenKey', {}, function ( error, response ) {
                     Binance.options.listenFutureKey = response.listenKey;
-                    setTimeout( function userDataKeepAlive() { // keepalive
-                        try {
-                            apiRequest( url + 'v1/listenKey?listenKey=' + Binance.options.listenFutureKey, {}, function ( err ) {
-                                if ( err ) setTimeout( userDataKeepAlive, 60000 ); // retry in 1 minute
-                                else setTimeout( userDataKeepAlive, 60 * 30 * 1000 ); // 30 minute keepalive
-                            }, 'PUT' );
-                        } catch ( error ) {
-                            setTimeout( userDataKeepAlive, 60000 ); // retry in 1 minute
-                        }
-                    }, 60 * 30 * 1000 ); // 30 minute keepalive
+                    if(!Binance.options.listenFutureKeyTimer){
+                        Binance.options.listenFutureKeyTimer = setTimeout( function userDataKeepAlive() { // keepalive
+                            try {
+                                apiRequest( url + 'v1/listenKey?listenKey=' + Binance.options.listenFutureKey, {}, function ( err ) {
+                                    if ( err ) Binance.options.listenFutureKeyTimer = setTimeout( userDataKeepAlive, 60000 ); // retry in 1 minute
+                                    else Binance.options.listenFutureKeyTimer = setTimeout( userDataKeepAlive, 60 * 30 * 1000 ); // 30 minute keepalive
+                                }, 'PUT' );
+                            } catch ( error ) {
+                                Binance.options.listenFutureKeyTimer = setTimeout( userDataKeepAlive, 60000 ); // retry in 1 minute
+                            }
+                        }, 60 * 30 * 1000 ); // 30 minute keepalive
+                    }
+
                     Binance.options.future_margin_call_callback = margin_call_callback;
                     Binance.options.future_account_update_callback = account_update_callback;
                     Binance.options.future_account_config_update_callback = account_config_update_callback;
                     Binance.options.future_order_update_callback = order_update_callback;
-                    const subscription = futuresSubscribe( Binance.options.listenFutureKey, userFutureDataHandler, { reconnect } );
+                    const subscription = futuresSubscribe( Binance.options.listenFutureKey, userFutureDataHandler, { reconnect, listenFutureKey: auth ? Binance.options.listenFutureKey : null } );
                     if ( subscribed_callback ) subscribed_callback( subscription.endpoint );
                 }, 'POST' );
             },
