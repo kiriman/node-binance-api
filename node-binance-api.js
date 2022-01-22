@@ -829,7 +829,7 @@ let api = function Binance( options = {} ) {
      * @return {undefined}
      */
     const handleFuturesSocketClose = function ( reconnect, code, reason ) {
-        Binance.options.log('Delete: ' + JSON.stringify(Binance.futuresSubscriptions[this.endpoint], false, 4))
+        //Binance.options.log('Delete: ' + JSON.stringify(Binance.futuresSubscriptions[this.endpoint], false, 4))
         delete Binance.futuresSubscriptions[this.endpoint];
         if ( Binance.futuresSubscriptions && Object.keys( Binance.futuresSubscriptions ).length === 0 ) {
             clearInterval( Binance.socketHeartbeatInterval );
