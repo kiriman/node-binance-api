@@ -836,10 +836,10 @@ let api = function Binance( options = {} ) {
         }
         Binance.options.log( 'Futures WebSocket closed: ' + this.endpoint +
           ( code ? ' (' + code + ')' : '' ) +
-          ( reason ? ' ' + reason : '' ) );
+          ( reason ? ' ' + reason : '' ) + ' ' + new Date() + '');
         if ( Binance.options.reconnect && this.reconnect && reconnect ) {
             if ( this.endpoint && parseInt( this.endpoint.length, 10 ) === 60 ) Binance.options.log( 'Futures account data WebSocket reconnecting...' );
-            else Binance.options.log( 'Futures WebSocket reconnecting: ' + this.endpoint + '...' );
+            else Binance.options.log( 'Futures WebSocket reconnecting: ' + this.endpoint + '... ' + new Date() );
             try {
                 reconnect();
             } catch ( error ) {
@@ -2162,11 +2162,11 @@ let api = function Binance( options = {} ) {
             Binance.options.log( "Unexpected userDeliveryData: " + type );
         }
     };
-	
+
 	/**
-    * Universal Transfer requires API permissions enabled 
+    * Universal Transfer requires API permissions enabled
     * @param {string} type - ENUM , example MAIN_UMFUTURE for SPOT to USDT futures, see https://binance-docs.github.io/apidocs/spot/en/#user-universal-transfer
-    * @param {string} asset - the asset - example :USDT    * 
+    * @param {string} asset - the asset - example :USDT    *
     * @param {number} amount - the callback function
     * @param {function} callback - the callback function
     * @return {promise}
@@ -4131,7 +4131,7 @@ let api = function Binance( options = {} ) {
         futuresMarketSell: async ( symbol, quantity, params = {} ) => {
             return futuresOrder( 'SELL', symbol, quantity, false, params );
         },
-        
+
         futuresMultipleOrders: async ( orders = [{}] ) => {
             let params = { batchOrders: JSON.stringify(orders) };
             return promiseRequest( 'v1/batchOrders', params, { base:fapi, type:'TRADE', method:'POST'} );
@@ -4311,7 +4311,7 @@ let api = function Binance( options = {} ) {
             params.symbol = symbol;
             return promiseRequest( 'v1/userTrades', params, { base:dapi, type:'SIGNED' } );
         },
-        
+
         deliveryCommissionRate: async ( symbol, params = {} ) => {
             if ( symbol ) params.symbol = symbol;
             return promiseRequest( 'v1/commissionRate', params, { base:dapi, type:'SIGNED' } );
@@ -4670,7 +4670,7 @@ let api = function Binance( options = {} ) {
 			universalTransfer(type, asset, amount, callback),
 
         /**
-        * Get trades for a given symbol - margin account 
+        * Get trades for a given symbol - margin account
         * @param {string} symbol - the symbol
         * @param {function} callback - the callback function
         * @param {object} options - additional options
@@ -4800,7 +4800,7 @@ let api = function Binance( options = {} ) {
                 if ( callback ) return callback( error, data );
             }, 'GET' );
         },
-        
+
         /**
          * Margin account repay
          * @param {string} asset - the asset
@@ -4821,7 +4821,7 @@ let api = function Binance( options = {} ) {
                 if ( callback ) return callback( error, data );
             }, 'POST' );
         },
-        
+
         /**
          * Margin account details
          * @param {function} callback - the callback function
